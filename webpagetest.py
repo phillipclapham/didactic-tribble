@@ -82,7 +82,7 @@ st.title("Pressable Bulk Performance Testing Tool")
 st.markdown("""
 ### Instructions:
 1. Enter your API Key
-2. Upload a CSV or TSV file with URLs (First column should contain URLs)
+2. Upload a CSV or TSV file with URLs and Agency names
 3. Click 'Run Tests' to begin processing
 """)
 
@@ -202,7 +202,8 @@ st.markdown("""
 ---
 ### File Format Requirements:
 - File can be either CSV (comma-separated) or TSV (tab-separated)
-- First column should contain URLs
+- The first row of the CSV/TSV should contain the headers Site and Agency
+- First column should contain site URLs
 - URLs should be properly formatted (e.g., example.com or www.example.com)
 - Second column should be the agency name
 - Output will be provided in your chosen format
