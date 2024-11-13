@@ -83,14 +83,14 @@ st.title("Pressable Bulk Performance Testing Tool")
 st.markdown("""
 ### Instructions:
 1. Enter your WebPageTest API Key
-2. Upload a CSV or TSV file with URLs and Agency names (see further instructions below)
+2. Upload a CSV or TSV file with URLs and Agency IDs (see further instructions below)
 3. Click 'Run Tests' to begin processing
 """)
 
 # API Key handling
-api_key = st.text_input("Enter your API Key", type="password")
+api_key = st.text_input("Enter your API Key", type="password", key="api_key")
 
-# File upload
+# File upload:
 uploaded_file = st.file_uploader("Upload your file", type=['csv', 'tsv'])
 
 if uploaded_file and api_key:
@@ -164,32 +164,32 @@ if uploaded_file and api_key:
             st.session_state.output_data = output.getvalue()
 
         # Results Analysis and Download Button
-        if st.session_state.output_data:
-            st.subheader("Results Analysis")
-            col1, col2 = st.columns(2)
+            if st.session_state.output_data:
+                st.subheader("Results Analysis")
+                col1, col2 = st.columns(2)
 
-            with col1:
-                if 'Results' in df.columns:
-                    success_rate = (df['Results'] != 'Error processing URL').mean() * 100
-                    st.metric("Success Rate", f"{success_rate:.1f}%")
-                else:
-                    st.error("Results column is missing!")
+                with col1:
+                    if 'Results' in df.columns:
+                        success_rate = (df['Results'] != 'Error processing URL').mean() * 100
+                        st.metric("Success Rate", f"{success_rate:.1f}%")
+                    else:
+                        st.error("Results column is missing!")
 
-            with col2:
-                failed_urls = df[df['Results'] == 'Error processing URL'][url_column]
-                if not failed_urls.empty:
-                    st.write("Failed URLs:")
-                    st.dataframe(failed_urls)
-                else:
-                    st.success("No failed URLs!")
+                with col2:
+                    failed_urls = df[df['Results'] == 'Error processing URL'][url_column]
+                    if not failed_urls.empty:
+                        st.write("Failed URLs:")
+                        st.dataframe(failed_urls)
+                    else:
+                        st.success("No failed URLs!")
 
-            # Download button using session state data
-            st.download_button(
-                label="Download Results",
-                data=st.session_state.output_data,
-                file_name="webpagetest-results.tsv",
-                mime="text/tab-separated-values"
-            )
+                # Download button without columns
+                st.download_button(
+                    label="Download Results",
+                    data=st.session_state.output_data,
+                    file_name="webpagetest-results.tsv",
+                    mime="text/tab-separated-values"
+                )
 
     except Exception as e:
         import traceback
@@ -207,6 +207,6 @@ st.markdown("""
 - The first row of the CSV/TSV should contain the headers Site and Agency
 - First column should contain site URLs
 - URLs should be properly formatted (e.g., example.com or www.example.com)
-- Second column should be the agency name
+- Second column should contain the Pressable account ID for that agency
 - Output will be provided in TSV format for easy pasting to Google Docs
 """)
