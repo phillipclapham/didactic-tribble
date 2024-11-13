@@ -8,6 +8,7 @@ import time
 import io
 import csv
 import numpy as np
+import traceback
 
 def validate_urls(urls):
     """Validate URLs before processing"""
@@ -81,8 +82,8 @@ st.title("Pressable Bulk Performance Testing Tool")
 # Add instructions
 st.markdown("""
 ### Instructions:
-1. Enter your API Key
-2. Upload a CSV or TSV file with URLs and Agency names
+1. Enter your WebPageTest API Key
+2. Upload a CSV or TSV file with URLs and Agency names (see further instructions below)
 3. Click 'Run Tests' to begin processing
 """)
 
@@ -97,6 +98,11 @@ if uploaded_file and api_key:
         # Detect delimiter and read file accordingly
         delimiter = detect_delimiter(uploaded_file)
         df = pd.read_csv(uploaded_file, sep=delimiter)
+
+        # Confirm that the DataFrame is not empty
+        if df.empty:
+            st.error("The uploaded file is empty. Please upload a valid file.")
+            st.stop()
 
         # Get the name of the first column (which should contain URLs)
         url_column = df.columns[0]
@@ -115,13 +121,25 @@ if uploaded_file and api_key:
             if not st.checkbox("Proceed with testing despite URL warnings"):
                 st.stop()
 
+        # Ensure the DataFrame has the 'Results' column
+        if 'Results' not in df.columns:
+            df['Results'] = ''
+
+        # Store output in session state to persist across reruns
+        if 'output_data' not in st.session_state:
+            st.session_state.output_data = None
+
+        # If the "Run Tests" button is clicked
         if st.button("Run Tests"):
             progress_bar = st.progress(0)
             status_container = st.empty()
 
             # Add new columns
             df['Date'] = datetime.now().strftime('%d %b %Y')
-            df['Results'] = ''
+
+            # Ensure 'Results' column exists
+            if 'Results' not in df.columns:
+                df['Results'] = ''
 
             # Process each URL
             for idx, row in df.iterrows():
@@ -140,13 +158,22 @@ if uploaded_file and api_key:
 
             status_container.text("Processing complete! Download your results below.")
 
-            # Results Analysis
+            # Prepare output data for download
+            output = io.StringIO()
+            df.to_csv(output, sep='\t', index=False, quoting=csv.QUOTE_MINIMAL)
+            st.session_state.output_data = output.getvalue()
+
+        # Results Analysis and Download Button
+        if st.session_state.output_data:
             st.subheader("Results Analysis")
             col1, col2 = st.columns(2)
 
             with col1:
-                success_rate = (df['Results'] != 'Error processing URL').mean() * 100
-                st.metric("Success Rate", f"{success_rate:.1f}%")
+                if 'Results' in df.columns:
+                    success_rate = (df['Results'] != 'Error processing URL').mean() * 100
+                    st.metric("Success Rate", f"{success_rate:.1f}%")
+                else:
+                    st.error("Results column is missing!")
 
             with col2:
                 failed_urls = df[df['Results'] == 'Error processing URL'][url_column]
@@ -156,44 +183,19 @@ if uploaded_file and api_key:
                 else:
                     st.success("No failed URLs!")
 
-            # Export Options
-            st.subheader("Export Options")
-            export_format = st.radio(
-                "Choose export format:",
-                ["TSV (Google Sheets compatible)", "CSV", "Excel", "JSON"]
-            )
-
-            if export_format == "TSV (Google Sheets compatible)":
-                output = io.StringIO()
-                df.to_csv(output, sep='\t', index=False, quoting=csv.QUOTE_MINIMAL)
-                file_extension = "tsv"
-                mime_type = "text/tab-separated-values"
-            elif export_format == "CSV":
-                output = io.StringIO()
-                df.to_csv(output, index=False)
-                file_extension = "csv"
-                mime_type = "text/csv"
-            elif export_format == "Excel":
-                output = io.BytesIO()
-                df.to_excel(output, index=False)
-                file_extension = "xlsx"
-                mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            else:  # JSON
-                output = io.StringIO()
-                df.to_json(output, orient='records')
-                file_extension = "json"
-                mime_type = "application/json"
-
+            # Download button using session state data
             st.download_button(
-                label=f"Download Results ({export_format})",
-                data=output.getvalue(),
-                file_name=f"webpagetest-results.{file_extension}",
-                mime=mime_type
+                label="Download Results",
+                data=st.session_state.output_data,
+                file_name="webpagetest-results.tsv",
+                mime="text/tab-separated-values"
             )
 
     except Exception as e:
+        import traceback
         st.error(f"Error processing file: {str(e)}")
-        st.error("Full error details:", exc_info=True)
+        with st.expander("Show full error details"):
+            st.code(traceback.format_exc())
 else:
     st.info("Please provide both an API key and upload a file to continue.")
 
@@ -201,10 +203,10 @@ else:
 st.markdown("""
 ---
 ### File Format Requirements:
-- File can be either CSV (comma-separated) or TSV (tab-separated)
+- Uploaded file can be either CSV (comma-separated) or TSV (tab-separated)
 - The first row of the CSV/TSV should contain the headers Site and Agency
 - First column should contain site URLs
 - URLs should be properly formatted (e.g., example.com or www.example.com)
 - Second column should be the agency name
-- Output will be provided in your chosen format
+- Output will be provided in TSV format for easy pasting to Google Docs
 """)
